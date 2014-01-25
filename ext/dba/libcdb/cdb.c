@@ -110,7 +110,7 @@ int cdb_read(struct cdb *c, char *buf, unsigned int len, uint32 pos TSRMLS_DC)
 	while (len > 0) {
 		int r;
 		do {
-			r = php_stream_read(c->fp, buf, len);
+			r = c->fp->ops->read(c->fp, buf, len TSRMLS_CC);
 		} while ((r == -1) && (errno == EINTR));
 		if (r == -1) 
 			return -1;
