@@ -81,6 +81,10 @@ uint32 cdb_hash(char *buf, unsigned int len)
 /* {{{ cdb_free */
 void cdb_free(struct cdb *c)
 {
+    if (c->map) {
+        php_stream_mmap_unmap(c->fp);
+        c->map = 0;
+    }
 }
 /* }}} */
 
@@ -97,30 +101,50 @@ void cdb_init(struct cdb *c, php_stream *fp)
 	cdb_free(c);
 	cdb_findstart(c);
 	c->fp = fp;
+
+    if (php_stream_mmap_possible(c->fp)) {
+        char *map;
+        size_t size;
+
+        map = php_stream_mmap_range(c->fp, 0, PHP_STREAM_MMAP_ALL, PHP_STREAM_MAP_MODE_SHARED_READONLY, &size);
+
+        if (map) {
+            c->map = map;
+            c->size = size;
+        }
+    }
 }
 /* }}} */
 
 /* {{{ cdb_read */
 int cdb_read(struct cdb *c, char *buf, unsigned int len, uint32 pos)
 {
-	if (php_stream_seek(c->fp, pos, SEEK_SET) == -1) {
-		errno = EPROTO;
-		return -1;
-	}
-	while (len > 0) {
-		int r;
-		do {
-			r = php_stream_read(c->fp, buf, len);
-		} while ((r == -1) && (errno == EINTR));
-		if (r == -1)
-			return -1;
-		if (r == 0) {
+	if (c->map) {
+		if ((pos > c->size) || (c->size - pos < len)) {
 			errno = EPROTO;
 			return -1;
 		}
-		buf += r;
-		len -= r;
-	}
+		memcpy(buf, c->map + pos, len);
+	} else {
+		if (php_stream_seek(c->fp, pos, SEEK_SET) == -1) {
+			errno = EPROTO;
+			return -1;
+		}
+		while (len > 0) {
+			int r;
+			do {
+				r = php_stream_read(c->fp, buf, len);
+			} while ((r == -1) && (errno == EINTR));
+			if (r == -1)
+				return -1;
+			if (r == 0) {
+				errno = EPROTO;
+				return -1;
+			}
+			buf += r;
+			len -= r;
+		}
+		}
 	return 0;
 }
 /* }}} */

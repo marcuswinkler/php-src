@@ -28,7 +28,9 @@
 #define CDB_HASHSTART 5381
 
 struct cdb {
+	char *map; /* 0 if no map is available */
 	php_stream *fp;
+	uint32 size; /* initialized if map is nonzero */
 	uint32 loop; /* number of hash slots searched under this key */
 	uint32 khash; /* initialized if loop is nonzero */
 	uint32 kpos; /* initialized if loop is nonzero */
