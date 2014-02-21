@@ -113,6 +113,7 @@ void cdb_init(struct cdb *c, php_stream *fp)
             c->size = size;
         }
     }
+	php_stream_set_option(c->fp, PHP_STREAM_OPTION_READ_BUFFER, PHP_STREAM_BUFFER_NONE, NULL);
 }
 /* }}} */
 
